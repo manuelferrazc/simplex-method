@@ -11,9 +11,6 @@ class Status(Enum):
 def zero(x,e=1e-8):
     return 0 if abs(x)<e else x
 
-def printSolution():
-    pass
-
 def getConstraints(file):
     numvar = int(file.readline())
     numret = int(file.readline())
@@ -86,7 +83,10 @@ def getMatrixFPI(numVar,numRet,varMap,numVarFPI,file):
         if i in needsExtra:
             A[i][r]=1
             r+=1
-    for i in range(numRet): A[i].append(b[i])
+    for i in range(numRet):
+        A[i].append(b[i])
+        if b[i]<0:
+            A[i] = [-x for x in A[i]]
     return util.makeMatrixFullRank(np.array(A))[0]
 
 def parseAndGetInput():
@@ -125,13 +125,66 @@ def hasBase(A):
 
     return lines,baseMap
 
-# def getTableau(): pass
+def getTableau(A,c,lines):
+    numrows,numcolumns = len(A), len(A[0]) 
+    Al = np.zeros((1+numrows,numcolumns+2*numrows-len(lines)))
+    for i in range(numcolumns-1): Al[0][numrows+i] = -c[i]
+    for i in range(numrows):
+        Al[i+1][i] = 1
+        Al[i+1][len(Al[0])-1] = A[i][numcolumns-1]
+        for j in range(numcolumns-1):
+            Al[i+1][j+numrows] = A[i][j]
+    c=0
+    for i in range(numrows):
+        if i in lines: continue
+        Al[i+1][numrows+numcolumns+c-1] = 1
+        Al[0][numrows+numcolumns+c-1] = -1
+        c+=1
+        
+    return Al
+
+def changeTableau(A,c,lines):
+    numrows,numcolumns = len(A), len(A[0])
+    Al = np.zeros((numrows,1+numcolumns-(numrows-len(lines))))
+    for i in range(numrows):
+        for j in range(len(Al[0])): Al[i][j] = A[i][j]
+        Al[i][numcolumns-(numrows-len(lines))] = A[i][numcolumns-1]
+    for i in range(len(c)): Al[0][numrows+i-1] = -c[i]
+    
+    return Al
+
+def pivot(A,i,j):
+    A[i] = A[i]/A[i][j]
+
+    for l in range(i):
+        A[l] = A[l] - A[i]*A[l][j]
+    for l in range(i+1,len(A)):
+        A[l] = A[l] - A[i]*A[l][j]
+
+def pivotD(): pass
+
+def printSolution(): pass
+
+def select(): pass
+
+def findBase(): pass
+
+def simplex(): pass
 
 def main():
     numVar,numRet,varMap,numVarFPI,c,isMin,A,args = parseAndGetInput()
     c = c + [0]*(len(A[0])-len(c)-1)
 
-    x = hasBase(A)
+    lines,baseMap = hasBase(A)
+    # print(A)
+    # print(c,'\n\n')
+    tableau = getTableau(A,np.zeros(len(c)),lines)
+    # print(tableau,'\n\n')
+    ct = changeTableau(tableau,c,lines)
+    # print(ct,'\n\n\n')
+    pivot(ct,1,4)
+    # print(ct,'\n\n\n')
+
     # if len(x[0])==len(A), then we already have a base
 
 if __name__ == '__main__': main()
