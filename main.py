@@ -14,12 +14,12 @@ def zero(x,e=1e-8):
 def printSolution():
     pass
 
-def getConstraints(askinput=False):
-    numvar = int(input('Write the number of variables\n' if askinput else ''))
-    numret = int(input('Write the number of constraints\n' if askinput else ''))
+def getConstraints(file):
+    numvar = int(file.readline())
+    numret = int(file.readline())
     var_map = [(0,None)]*numvar
     m = 0
-    rest_var = input('Write the constraints on the variables (0:free, 1:>=0, -1:<=0)\n' if askinput else '').split(' ')
+    rest_var = file.readline().split(' ')
     rest_var = [int(i) for i in rest_var]
     for i in range(numvar):
         if rest_var[i]==0:
@@ -30,10 +30,8 @@ def getConstraints(askinput=False):
         m+=1
     return (numvar,numret,var_map,m)
 
-def objectiveFunction(numVar,varMap,askinput=False):
-    coef = input('Write the coefficients of the variables in the objective function\n\
-If neither max or min expression is given, it\'s assumed that it is a maximization problem\n' if askinput else '').split(' ')
-    # coef = [float(i) for i in coef]
+def getObjectiveFunction(numVar,varMap,file):
+    coef = file.readline().split(' ')
     c = []
     if coef[0][0]=='m':
         for i in range(numVar):
@@ -56,14 +54,13 @@ If neither max or min expression is given, it\'s assumed that it is a maximizati
                 c.append(-f)
     return c,False
 
-def getMatrixFPI(numVar,numRet,varMap,numVarFPI,askinput=False):
+def getMatrixFPI(numVar,numRet,varMap,numVarFPI,file):
     A = [[]]*numRet
     for i in range(numRet): A[i] = [0]*(numVarFPI)
     needsExtra = set()
-    c = objectiveFunction(numVar,varMap,askinput)
     b = [0]*numRet
     for i in range(numRet):
-        inequation = input(f'Write the inequation {i+1}\n' if askinput else '').split(' ')
+        inequation = file.readline().split(' ')
         v=0
         if inequation[numVar]!='==':
             needsExtra.add(i)
@@ -90,15 +87,51 @@ def getMatrixFPI(numVar,numRet,varMap,numVarFPI,askinput=False):
             A[i][r]=1
             r+=1
     for i in range(numRet): A[i].append(b[i])
-    print(np.array(A))
-    # next steps: remove dependences (use util) and return it
-    # the next and final transformation will be make by another function i think
+    return util.makeMatrixFullRank(np.array(A))[0]
 
+def parseAndGetInput():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('filename', help='Name of the file to process')
+    parser.add_argument('--decimals', type=int, default=4, help='Number of decimal digits to print numeric values')
+    parser.add_argument('--digits', type=int, default=7, help='Total number of digits to print numeric values')
+    parser.add_argument('--policy', type=str, default='largest', help='policy used to choose the pivot element')
 
+    args = parser.parse_args()
+    file = open(args.filename)
+    numVar,numRet,varMap,numVarFPI = getConstraints(file)
+    c,isMin = getObjectiveFunction(numVar,varMap,file)
+    A = getMatrixFPI(numVar,numRet,varMap,numVarFPI,file)
+    file.close()
+    return numVar,numRet,varMap,numVarFPI,c,isMin,A,args
+
+def hasBase(A):
+    lines = set()
+    baseMap = {}
+    m = len(A[0])
+    n = len(A)
+    for column in range(m):
+        z=0
+        u=0
+        i=0
+        for line in range(n):
+            A[line][column] = zero(A[line][column])
+            if A[line][column]==0: z+=1
+            elif zero(A[line][column]-1.0)==0 and u==0: u,i = u+1,line
+            else: break
+        if u==1 and z+u==n: # basic column
+            if i not in lines:
+                lines.add(i)
+                baseMap[column] = i # maybe invert this ?? IDK
+
+    return lines,baseMap
+
+# def getTableau(): pass
 
 def main():
-    askinput = True
-    numVar,numRet,varMap,numVarFPI = getConstraints(askinput)
-    getMatrixFPI(numVar,numRet,varMap,numVarFPI,askinput)
+    numVar,numRet,varMap,numVarFPI,c,isMin,A,args = parseAndGetInput()
+    c = c + [0]*(len(A[0])-len(c)-1)
+
+    x = hasBase(A)
+    # if len(x[0])==len(A), then we already have a base
 
 if __name__ == '__main__': main()
