@@ -9,7 +9,7 @@ class Status(Enum):
     LEZ = 2
 
 def zero(x,e=1e-8):
-    return 0.0 if abs(x)<e else x
+    return 0 if abs(x)<e else x
 
 def printSolution():
     pass
@@ -31,28 +31,42 @@ def getConstraints(askinput=False):
     return (numvar,numret,var_map,m)
 
 def objectiveFunction(numVar,varMap,askinput=False):
-    coef = input('Write the coefficients of the variables in the objective function\n' if askinput else '').split(' ')
-    coef = [float(i) for i in coef]
+    coef = input('Write the coefficients of the variables in the objective function\n\
+If neither max or min expression is given, it\'s assumed that it is a maximization problem\n' if askinput else '').split(' ')
+    # coef = [float(i) for i in coef]
     c = []
-    for i in range(numVar):
-        if varMap[i][0]==Status.GEZ: c.append(coef[i])
-        elif varMap[i][0]==Status.LEZ: c.append(-coef[i])
-        else:
-            c.append(coef[i])
-            c.append(-coef[i])
-    return c
+    if coef[0][0]=='m':
+        for i in range(numVar):
+            f = float(coef[i+1])
+            if varMap[i][0]==Status.GEZ: c.append(f)
+            elif varMap[i][0]==Status.LEZ: c.append(-f)
+            else:
+                c.append(f)
+                c.append(-f)
+        if coef[0]=='min':
+            c = [-x for x in c]
+            return c,True
+    else:
+        for i in range(numVar):
+            f = float(coef[i])
+            if varMap[i][0]==Status.GEZ: c.append(f)
+            elif varMap[i][0]==Status.LEZ: c.append(-f)
+            else:
+                c.append(f)
+                c.append(-f)
+    return c,False
 
 def getMatrixFPI(numVar,numRet,varMap,numVarFPI,askinput=False):
     A = [[]]*numRet
-    for i in range(numRet): A[i] = [0]*(numVarFPI+1)
-    needsExtra = []
+    for i in range(numRet): A[i] = [0]*(numVarFPI)
+    needsExtra = set()
     c = objectiveFunction(numVar,varMap,askinput)
-
+    b = [0]*numRet
     for i in range(numRet):
         inequation = input(f'Write the inequation {i+1}\n' if askinput else '').split(' ')
         v=0
         if inequation[numVar]!='==':
-            needsExtra.append(i)
+            needsExtra.add(i)
         for j in range(numVar):
             if varMap[j][0]==Status.FREE:
                 A[i][v] = float(inequation[j])
@@ -63,10 +77,22 @@ def getMatrixFPI(numVar,numRet,varMap,numVarFPI,askinput=False):
             else: A[i][v] = float(inequation[j])
             v+=1
 
-        A[i][numVarFPI] = float(inequation[numVar+1])
-        if inequation[numVar]=='>=': A[i] = [-x for x in A[i]]
+        b[i] = float(inequation[numVar+1])
+        if inequation[numVar]=='>=':
+            A[i] = [-x for x in A[i]]
+            b[i] = -b[i]
 
-    
+    r = numVarFPI
+    for i in range(numRet):
+        for j in range(numVarFPI,numVarFPI+len(needsExtra)):
+            A[i].append(0)
+        if i in needsExtra:
+            A[i][r]=1
+            r+=1
+    for i in range(numRet): A[i].append(b[i])
+    print(np.array(A))
+    # next steps: remove dependences (use util) and return it
+    # the next and final transformation will be make by another function i think
 
 
 
