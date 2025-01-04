@@ -161,9 +161,32 @@ def pivot(A,i,j):
     for l in range(i+1,len(A)):
         A[l] = A[l] - A[i]*A[l][j]
 
-def pivotD(): pass
+def printTableau(A,args):
+    numrows,numcolumns = len(A), len(A[0])
+    s = 6
+    for i in range(numrows-1):
+        print('%*.*f ' % (args.digits, args.decimals, A[0][i]), end='')
+        s+=args.digits+1
+    print('|| ', end='')
+    for i in range(numrows,numcolumns-1):
+        print('%*.*f ' % (args.digits, args.decimals, A[0][i]), end='')
+        s+=args.digits+1
+    print('|| %*.*f\n'% (args.digits,args.decimals,A[0][numcolumns-1]), end='')
+    s+=args.digits
+    print('-'*s)
 
-def printSolution(): pass
+    for i in range(1,numrows):
+        for j in range(numrows-1):
+            print('%*.*f ' % (args.digits, args.decimals,A[i][j]), end='')
+        print('|| ', end='')
+        for j in range(numrows,numcolumns-1):
+            print('%*.*f ' % (args.digits, args.decimals,A[i][j]), end='')
+        print('|| ', end='')
+        print('%*.*f ' % (args.digits, args.decimals,A[i][numcolumns-1]))
+        
+def printSolution(A,varMap,x,base,it = [1]):
+    print(f'Iteration {it[0]}\n')
+    it[0]+=1
 
 def select(): pass
 
@@ -183,6 +206,8 @@ def main():
     ct = changeTableau(tableau,c,lines)
     # print(ct,'\n\n\n')
     pivot(ct,1,4)
+    print(tableau,'\n\n')
+    printTableau(tableau,args)
     # print(ct,'\n\n\n')
 
     # if len(x[0])==len(A), then we already have a base
