@@ -150,25 +150,27 @@ def getTableau(A,c,lines,baseMap):
         Al[i][numrows+numcolumns+c-1] = 1
         Al[0][numrows+numcolumns+c-1] = 1
         c+=1
-    print(baseMap)
-    print(Al)
     if c!=0:
         for i in range(numrows+numcolumns-1): Al[0][i] = 0
         for i in baseMap:
             if zero(Al[0][i]-1)==0: pivot(Al,baseMap[i],i)
     return Al,c
 
-def changeTableau(A,c,lines):
+def changeTableau(A,c,extra):
     numrows,numcolumns = len(A), len(A[0])
-    Al = np.zeros((numrows,1+numcolumns-(numrows-len(lines))))
-    for i in range(numrows):
-        for j in range(len(Al[0])): Al[i][j] = A[i][j]
-        Al[i][numcolumns-(numrows-len(lines))] = A[i][numcolumns-1]
-    for i in range(len(c)): Al[0][numrows+i-1] = -c[i]
+    Al = np.zeros((numrows,numcolumns-extra))
+    for i in range(1,numrows):
+        for j in range(numcolumns-extra-1): Al[i][j] = A[i][j]
+        Al[i][numcolumns-extra-1] = A[i][numcolumns-1]
     
+    for i in range(len(c)): Al[0][numrows+i-1] = -c[i]
     return Al
 
-def printTableau(A,args):
+class X:
+    def __init__(self):
+        self.digits=7
+        self.decimals = 3
+def printTableau(A,args = X()):
     numrows,numcolumns = len(A), len(A[0])
     s = 6
     for i in range(numrows-1):
@@ -285,13 +287,41 @@ def printSolution(A,varMap,x,base,args):
     print(f'Iteration {printSolution.counter}\nTableau:')
     printTableau(A,args)
 
-def findBase(A,varMap,c,): pass
+def find(A,i,cols):
+    for col in range(len(A[0])):
+        if zero(A[i][col]-1)==0 and col in cols: return col
 
-def simplex(A,numRet,varMap,c,isMin,args,lines,baseMap):
-    if numRet!=len(lines):
-        findBase()
+def findBase(A,varMap,c,cols,args,extra):
+    x,y,z = select(A,cols,args.policy)
+    while not z:
+        del cols[find(A,x,cols)]
+        pivot(A,x,y)
+        cols[y]=x
+        x,y,z = select(A,cols,args.policy)
+        
+    A[0][len(A)-1] = zero(A[0][len(A)-1])
+    if A[0][len(A)-1]!=0:
+        print('Status: inviavel')
+        exit(0)
+    printTableau(A,args)
+    print()
+    Al = changeTableau(A,c,extra)
+    printTableau(Al,args)
+    for i in cols:
+        pivot(Al,cols[i],i)
+    return Al
 
-    
+def simplex(A,varMap,c,isMin,args,extra,baseMap):
+    print(extra)
+    if extra!=0: A = findBase(A,varMap,c,baseMap,args,extra)
+
+    x,y,z = select(A,baseMap,args.policy)
+    while not z:
+        pivot(A,x,y)
+        baseMap[y]=x
+        x,y,z = select(A,baseMap,args.policy)
+
+    print(-A[0][len(A[0])-1] if isMin else A[0][len(A[0])-1])
 
 
 def main():
@@ -299,8 +329,8 @@ def main():
     c = c + [0]*(len(A[0])-len(c)-1)
 
     lines,baseMap = hasBase(A)
-    # print(c,'\n\n')
-    tableau,c = getTableau(A,c,lines,baseMap)
+    tableau,ex = getTableau(A,c,lines,baseMap)
+    simplex(tableau,varMap,c,isMin,args,ex,baseMap)
 
 
 if __name__ == '__main__': main()
