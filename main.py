@@ -119,13 +119,20 @@ def hasBase(A):
             elif zero(A[line][column]-1.0)==0 and u==0: u,i = u+1,line
             else: break
         if u==1 and z+u==n: # basic column
-            if i not in lines:
-                lines.add(i)
-                baseMap[column] = i # maybe invert this ?? IDK
-
+            if i+1 not in lines:
+                lines.add(i+1)
+                baseMap[column+len(A)] = i+1 # maybe invert this ?? IDK
     return lines,baseMap
 
-def getTableau(A,c,lines):
+def pivot(A,i,j):
+    A[i] = A[i]/A[i][j]
+
+    for l in range(i):
+        A[l] = A[l] - A[i]*A[l][j]
+    for l in range(i+1,len(A)):
+        A[l] = A[l] - A[i]*A[l][j]
+
+def getTableau(A,c,lines,baseMap):
     numrows,numcolumns = len(A), len(A[0]) 
     Al = np.zeros((1+numrows,numcolumns+2*numrows-len(lines)))
     for i in range(numcolumns-1): Al[0][numrows+i] = -c[i]
@@ -135,13 +142,21 @@ def getTableau(A,c,lines):
         for j in range(numcolumns-1):
             Al[i+1][j+numrows] = A[i][j]
     c=0
-    for i in range(numrows):
+    
+    for i in range(1,numrows+1):
         if i in lines: continue
-        Al[i+1][numrows+numcolumns+c-1] = 1
-        Al[0][numrows+numcolumns+c-1] = -1
+        lines.add(i)
+        baseMap[numrows+numcolumns+c-1] = i
+        Al[i][numrows+numcolumns+c-1] = 1
+        Al[0][numrows+numcolumns+c-1] = 1
         c+=1
-        
-    return Al
+    print(baseMap)
+    print(Al)
+    if c!=0:
+        for i in range(numrows+numcolumns-1): Al[0][i] = 0
+        for i in baseMap:
+            if zero(Al[0][i]-1)==0: pivot(Al,baseMap[i],i)
+    return Al,c
 
 def changeTableau(A,c,lines):
     numrows,numcolumns = len(A), len(A[0])
@@ -153,14 +168,6 @@ def changeTableau(A,c,lines):
     
     return Al
 
-def pivot(A,i,j):
-    A[i] = A[i]/A[i][j]
-
-    for l in range(i):
-        A[l] = A[l] - A[i]*A[l][j]
-    for l in range(i+1,len(A)):
-        A[l] = A[l] - A[i]*A[l][j]
-
 def printTableau(A,args):
     numrows,numcolumns = len(A), len(A[0])
     s = 6
@@ -168,7 +175,7 @@ def printTableau(A,args):
         print('%*.*f ' % (args.digits, args.decimals, A[0][i]), end='')
         s+=args.digits+1
     print('|| ', end='')
-    for i in range(numrows,numcolumns-1):
+    for i in range(numrows-1,numcolumns-1):
         print('%*.*f ' % (args.digits, args.decimals, A[0][i]), end='')
         s+=args.digits+1
     print('|| %*.*f\n'% (args.digits,args.decimals,A[0][numcolumns-1]), end='')
@@ -179,37 +186,121 @@ def printTableau(A,args):
         for j in range(numrows-1):
             print('%*.*f ' % (args.digits, args.decimals,A[i][j]), end='')
         print('|| ', end='')
-        for j in range(numrows,numcolumns-1):
+        for j in range(numrows-1,numcolumns-1):
             print('%*.*f ' % (args.digits, args.decimals,A[i][j]), end='')
         print('|| ', end='')
         print('%*.*f ' % (args.digits, args.decimals,A[i][numcolumns-1]))
+
+def bland(A,cols): 
+    c = []
+    for i in range(len(A)-1,len(A[0])-1):
+        A[0][i] = zero(A[0][i])
+        if A[0][i]<0:
+            m = [-1,-1]
+            for j in range(1,len(A)):
+                A[j][i] = zero(A[j][i])
+                if A[j][i]<=0: continue
+                if m[0]==-1 or A[j][len(A[0])-1]/A[j][i]<m[0]: m = [A[j][len(A[0])-1]/A[j][i],j]
+            if m[0]== -1:
+                print('Status: ilimitado')
+                exit(0)
+            else: return m[1],i,False
+        elif A[0][i]==0 and i-len(A)+1 not in cols: c.append(i)
+    for i in c:
+        m = [-1,-1]
+        for j in range(1,len(A)):
+            if A[j][i]<=0: continue
+            if m[0]==-1 or A[j][len(A[0])-1]/A[j][i]<m[0]: m = [A[j][len(A[0])-1]/A[j][i],j]
+        if m[0]==-1: continue
+        else: return m[1],i,True
+    return -1,-1,True
+
+def largest(A,cols):
+    c = []
+    numlines,numcolumns = len(A),len(A[0])
+    b = -1
+    for col in range(numlines-1,numcolumns-1):
+        A[0][col] = zero(A[0][col])
+        if A[0][col]>=0:
+            if A[0][col]==0 and col-numlines+1 not in cols: c.append(col)
+            continue
+        if b==-1 or A[0][b]>A[0][col]: b = col
+    if b!=-1:
+        r = -1
+        for line in range(1,len(A)):
+            if A[line][b]<=0: continue
+            elif r==-1 or A[line][numcolumns-1]/A[line][b]<A[r][numcolumns-1]/A[r][b]:
+                r = line
+        if r==-1:
+            print('Status: ilimitado')
+            exit(0)
+        else: return r,b,False
+    for col in c:
+        m = [-1,-1]
+        for line in range(1,numlines):
+            if A[line][col]<=0: continue
+            if m[0]==-1 or A[line][numcolumns-1]/A[line][col]<m[0]: m = [A[line][numcolumns-1]/A[line][col],line]
+        if m[0]==-1: continue
+        else: return m[1],col,True
+    return -1,-1,True
+
+def smallest(A,cols):
+    c = []
+    numlines,numcolumns = len(A),len(A[0])
+    b = -1
+    for col in range(numlines-1,numcolumns-1):
+        A[0][col] = zero(A[0][col])
+        if A[0][col]>=0:
+            if A[0][col]==0 and col-numlines+1 not in cols: c.append(col)
+            continue
+        if b==-1 or A[0][b]<A[0][col]: b = col
+    if b!=-1:
+        r = -1
+        for line in range(1,len(A)):
+            if A[line][b]<=0: continue
+            elif r==-1 or A[line][numcolumns-1]/A[line][b]<A[r][numcolumns-1]/A[r][b]:
+                r = line
+        if r==-1:
+            print('Status: ilimitado')
+            exit(0)
+        else: return r,b,False
+    for col in c:
+        m = [-1,-1]
+        for line in range(1,numlines):
+            if A[line][col]<=0: continue
+            if m[0]==-1 or A[line][numcolumns-1]/A[line][col]<m[0]: m = [A[line][numcolumns-1]/A[line][col],line]
+        if m[0]==-1: continue
+        else: return m[1],col,True
+    return -1,-1,True
+
+def select(A,cols,policy):
+    if policy=='bland': return bland(A,cols)
+    elif policy=='largest': return largest(A,cols)
+    else: return smallest(A,cols)
         
-def printSolution(A,varMap,x,base,it = [1]):
-    print(f'Iteration {it[0]}\n')
-    it[0]+=1
+def printSolution(A,varMap,x,base,args):
+    if not hasattr(printSolution, "counter"):
+        printSolution.counter = 0
+    printSolution.counter += 1
+    print(f'Iteration {printSolution.counter}\nTableau:')
+    printTableau(A,args)
 
-def select(): pass
+def findBase(A,varMap,c,): pass
 
-def findBase(): pass
+def simplex(A,numRet,varMap,c,isMin,args,lines,baseMap):
+    if numRet!=len(lines):
+        findBase()
 
-def simplex(): pass
+    
+
 
 def main():
     numVar,numRet,varMap,numVarFPI,c,isMin,A,args = parseAndGetInput()
     c = c + [0]*(len(A[0])-len(c)-1)
 
     lines,baseMap = hasBase(A)
-    # print(A)
     # print(c,'\n\n')
-    tableau = getTableau(A,np.zeros(len(c)),lines)
-    # print(tableau,'\n\n')
-    ct = changeTableau(tableau,c,lines)
-    # print(ct,'\n\n\n')
-    pivot(ct,1,4)
-    print(tableau,'\n\n')
-    printTableau(tableau,args)
-    # print(ct,'\n\n\n')
+    tableau,c = getTableau(A,c,lines,baseMap)
 
-    # if len(x[0])==len(A), then we already have a base
 
 if __name__ == '__main__': main()
