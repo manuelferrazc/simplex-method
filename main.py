@@ -130,10 +130,10 @@ def hasBase(A):
             if A[line][column]==0: z+=1
             elif zero(A[line][column]-1.0)==0 and u==0: u,i = u+1,line
             else: break
-        if u==1 and z+u==n: # basic column
+        if u==1 and z+u==n:
             if i+1 not in lines:
                 lines.add(i+1)
-                baseMap[column+len(A)] = i+1 # maybe invert this ?? IDK
+                baseMap[column+len(A)] = i+1
     return lines,baseMap
 
 def pivot(A,i,j):
@@ -167,10 +167,7 @@ def getTableau(A,c,lines,baseMap):
             Al[0][i] = 0
         for i in baseMap:
             if zero(Al[0][i]-1)==0: pivot(Al,baseMap[i],i)
-    #     pivot(Al,2,6)
-    #     pivot(Al,4,4)
-    #     printTableau(Al)
-    # exit(0)
+
     return Al,c
 
 def changeTableau(A,c,extra):
@@ -183,11 +180,7 @@ def changeTableau(A,c,extra):
     for i in range(len(c)): Al[0][numrows+i-1] = -c[i]
     return Al
 
-class X:
-    def __init__(self):
-        self.digits=7
-        self.decimals = 3
-def printTableau(A,args = X()):
+def printTableau(A,args):
     numrows,numcolumns = len(A), len(A[0])
     s = 6
     for i in range(numrows-1):
@@ -358,7 +351,6 @@ def simplex(A,varMap,c,isMin,args,extra,baseMap):
 
     print(-A[0][len(A[0])-1] if isMin else A[0][len(A[0])-1])
 
-
 def main():
     numVar,numRet,varMap,numVarFPI,c,isMin,A,args = parseAndGetInput()
     c = c + [0]*(len(A[0])-len(c)-1)
@@ -366,6 +358,5 @@ def main():
     lines,baseMap = hasBase(A)
     tableau,ex = getTableau(A,c,lines,baseMap)
     simplex(tableau,varMap,c,isMin,args,ex,baseMap)
-
 
 if __name__ == '__main__': main()
