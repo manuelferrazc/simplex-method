@@ -92,11 +92,23 @@ def getMatrixFPI(numVar,numRet,varMap,numVarFPI,file):
 def parseAndGetInput():
     parser = argparse.ArgumentParser()
     parser.add_argument('filename', help='Name of the file to process')
-    parser.add_argument('--decimals', type=int, default=4, help='Number of decimal digits to print numeric values')
-    parser.add_argument('--digits', type=int, default=7, help='Total number of digits to print numeric values')
-    parser.add_argument('--policy', type=str, default='largest', help='policy used to choose the pivot element')
+    parser.add_argument('--decimals', type=int, default=4,
+                        help='Number of decimal digits to print numeric values')
+    parser.add_argument('--digits', type=int, default=7,
+                        help='Total number of digits to print numeric values')
+    parser.add_argument('--policy',
+                        type=str,
+                        choices=['largest','smallest','bland'],
+                        default='largest',
+                        help='policy used to choose the pivot element')
 
     args = parser.parse_args()
+    if args.decimals < 0:
+        print('The number of decimal digits to print numeric values must be, at least, 0')
+        exit(0)
+    if args.digits < 1:
+        print('The total number of digits to print numeric values must be positive')
+        exit(0)
     file = open(args.filename)
     numVar,numRet,varMap,numVarFPI = getConstraints(file)
     c,isMin = getObjectiveFunction(numVar,varMap,file)
@@ -326,12 +338,10 @@ def findBase(A,varMap,c,cols,args,extra):
         pivot(A,x,y)
         cols[y]=x
         x,y,z = selectAux(A,cols,len(A[0])-1-extra,args.policy)
-        if x==-1: break
-    A[0][len(A)-1] = zero(A[0][len(A)-1])
+    A[0][len(A[0])-1] = zero(A[0][len(A[0])-1])
     if A[0][len(A[0])-1]!=0:
         print('Status: inviavel')
         exit(0)
-    printTableau(A)
     Al = changeTableau(A,c,extra)
     for i in cols:
         pivot(Al,cols[i],i)
