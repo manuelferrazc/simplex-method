@@ -165,9 +165,9 @@ def getTableau(A,c,lines,baseMap):
     if c!=0:
         for i in range(numrows+numcolumns-1):
             Al[0][i] = 0
-        for i in baseMap:
-            if zero(Al[0][i]-1)==0: pivot(Al,baseMap[i],i)
-
+    for i in baseMap:
+        if zero(Al[0][i])!=0:
+            Al[0] = Al[0]-Al[baseMap[i]]*Al[0][i]
     return Al,c
 
 def changeTableau(A,c,extra):
