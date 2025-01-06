@@ -83,11 +83,13 @@ def getMatrixFPI(numVar,numRet,varMap,numVarFPI,file):
         if i in needsExtra:
             A[i][r]=1
             r+=1
+    negs = set()
     for i in range(numRet):
         A[i].append(b[i])
         if b[i]<0:
+            negs.add(i)
             A[i] = [-x for x in A[i]]
-    return util.makeMatrixFullRank(np.array(A))[0]
+    return util.makeMatrixFullRank(np.array(A))[0],negs
 
 def parseAndGetInput():
     parser = argparse.ArgumentParser()
@@ -112,9 +114,9 @@ def parseAndGetInput():
     file = open(args.filename)
     numVar,numRet,varMap,numVarFPI = getConstraints(file)
     c,isMin = getObjectiveFunction(numVar,varMap,file)
-    A = getMatrixFPI(numVar,numRet,varMap,numVarFPI,file)
+    A,negs = getMatrixFPI(numVar,numRet,varMap,numVarFPI,file)
     file.close()
-    return numVar,numRet,varMap,numVarFPI,c,isMin,A,args
+    return varMap,numVarFPI,c,isMin,A,args,negs
 
 def hasBase(A):
     lines = set()
@@ -144,12 +146,12 @@ def pivot(A,i,j):
     for l in range(i+1,len(A)):
         A[l] = A[l] - A[i]*A[l][j]
 
-def getTableau(A,c,lines,baseMap):
+def getTableau(A,c,lines,baseMap,negs):
     numrows,numcolumns = len(A), len(A[0]) 
     Al = np.zeros((1+numrows,numcolumns+2*numrows-len(lines)))
     for i in range(numcolumns-1): Al[0][numrows+i] = -c[i]
     for i in range(numrows):
-        Al[i+1][i] = 1
+        Al[i+1][i] = -1 if i in negs else 1
         Al[i+1][len(Al[0])-1] = A[i][numcolumns-1]
         for j in range(numcolumns-1):
             Al[i+1][j+numrows] = A[i][j]
@@ -345,6 +347,7 @@ def simplex(A,varMap,c,isMin,args,extra,baseMap):
 
     x,y,z = select(A,baseMap,args.policy)
     while not z:
+        del baseMap[find(A,x,baseMap)]
         pivot(A,x,y)
         baseMap[y]=x
         x,y,z = select(A,baseMap,args.policy)
@@ -352,11 +355,11 @@ def simplex(A,varMap,c,isMin,args,extra,baseMap):
     print(-A[0][len(A[0])-1] if isMin else A[0][len(A[0])-1])
 
 def main():
-    numVar,numRet,varMap,numVarFPI,c,isMin,A,args = parseAndGetInput()
+    varMap,numVarFPI,c,isMin,A,args,negs = parseAndGetInput()
     c = c + [0]*(len(A[0])-len(c)-1)
 
     lines,baseMap = hasBase(A)
-    tableau,ex = getTableau(A,c,lines,baseMap)
+    tableau,ex = getTableau(A,c,lines,baseMap,negs)
     simplex(tableau,varMap,c,isMin,args,ex,baseMap)
 
 if __name__ == '__main__': main()
