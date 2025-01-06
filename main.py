@@ -11,6 +11,18 @@ class Status(Enum):
 def zero(x,e=1e-8):
     return 0 if abs(x)<e else x
 
+def printVarMap(varMap):
+    print('Each variable Xi in the original problem is mapped to another variable Yj')
+    print('If Xi is non-negative, then Xi = Yj, for some j')
+    print('If Xi is non-positive, then Xi = -Yj, for some j')
+    print('Finally, if Xi is free, then Xi = Yj - Yk, for some j and k')
+    print('Yj is non-negative, for all j')
+    
+    for i in range(len(varMap)):
+        if varMap[i][0]==Status.GEZ: print(f'X{i} = Y{varMap[i][1]}')
+        elif varMap[i][1]==Status.LEZ: print(f'X{i} = -Y{varMap[i][1]}')
+        else: print(f'X{i} = Y{varMap[i][1][0]} - Y{varMap[i][1][1]}')
+
 def getConstraints(file):
     numvar = int(file.readline())
     numret = int(file.readline())
@@ -25,7 +37,19 @@ def getConstraints(file):
         elif rest_var[i]==1:var_map[i] = (Status.GEZ,m)
         else: var_map[i] = (Status.LEZ,m)
         m+=1
+
+    printVarMap(var_map)
     return (numvar,numret,var_map,m)
+
+def printMatrixFPI(A,c,args):
+    print('\nProblem given in the input after it has been put in the SFE:')
+    print('max ',end='')
+    for i in range(len(c)): print(f'{'%+*.*f*' if i>0 else '%*.*f*'}Y{i} '% (args.digits, args.decimals, c[i]) ,end='')
+    print('\n\nSubject to: ')
+    for line in range(0,len(A)):
+        for col in range(0,len(A[0])-1):
+            print(f'{'%+*.*f*' if col>0 else '%*.*f*'}Y{col} ' % (args.digits, args.decimals, abs(A[line][col])),end='')
+        print(f'= %*.*f' % (args.digits,args.decimals,A[line][col-1]))
 
 def getObjectiveFunction(numVar,varMap,file):
     coef = file.readline().split(' ')
@@ -89,6 +113,7 @@ def getMatrixFPI(numVar,numRet,varMap,numVarFPI,file):
         if b[i]<0:
             negs.add(i)
             A[i] = [-x for x in A[i]]
+
     return util.makeMatrixFullRank(np.array(A))[0],negs
 
 def parseAndGetInput():
@@ -207,7 +232,8 @@ def printTableau(A,args):
 
 def bland(A,cols): 
     c = []
-    for i in range(len(A)-1,len(A[0])-1):
+    numlines,numcolumns = len(A),len(A[0])
+    for i in range(numlines-1,numcolumns-1):
         A[0][i] = zero(A[0][i])
         if A[0][i]<0:
             m = [-1,-1]
@@ -219,7 +245,7 @@ def bland(A,cols):
                 print('Status: ilimitado')
                 exit(0)
             else: return m[1],i,False
-        elif A[0][i]==0 and i-len(A)+1 not in cols: c.append(i)
+        elif A[0][i]==0 and i not in cols: c.append(i)
     for i in c:
         m = [-1,-1]
         for j in range(1,len(A)):
@@ -236,7 +262,7 @@ def largest(A,cols):
     for col in range(numlines-1,numcolumns-1):
         A[0][col] = zero(A[0][col])
         if A[0][col]>=0:
-            if A[0][col]==0 and col-numlines+1 not in cols: c.append(col)
+            if A[0][col]==0 and col not in cols: c.append(col)
             continue
         if b==-1 or A[0][b]>A[0][col]: b = col
     if b!=-1:
@@ -265,7 +291,7 @@ def smallest(A,cols):
     for col in range(numlines-1,numcolumns-1):
         A[0][col] = zero(A[0][col])
         if A[0][col]>=0:
-            if A[0][col]==0 and col-numlines+1 not in cols: c.append(col)
+            if A[0][col]==0 and col not in cols: c.append(col)
             continue
         if b==-1 or A[0][b]<A[0][col]: b = col
     if b!=-1:
@@ -291,13 +317,49 @@ def select(A,cols,policy):
     if policy=='bland': return bland(A,cols)
     elif policy=='largest': return largest(A,cols)
     else: return smallest(A,cols)
-        
-def printSolution(A,varMap,x,base,args):
+
+def getSolution(A,cols):
+    x = np.zeros(len(A[0])-len(A))
+    for col in cols: x[col-len(A)+1] = zero(A[cols[col]][len(A[0])-1])
+    return x
+
+def getSolutionOriginal(varMap,xa):
+    x = np.zeros(len(varMap))
+    for i in range(len(varMap)):
+        if varMap[i][0]==Status.FREE: x[i] = xa[varMap[i][1][0]]-xa[varMap[i][1][1]]
+        elif varMap[i][0]==Status.GEZ: x[i] = xa[varMap[i][1]]
+        else: x[i] = -xa[varMap[i][1]]
+    return x
+
+def getSolutionDual(A):
+    x = np.zeros(len(A)-1)
+    for i in range(len(A)-1):
+        x[i] = zero(A[0][i])
+    return x
+
+def printArray(v,args):
+    print('[',end='')
+    for i in range(len(v)):
+        print(f'{'    ' if i>0 else ''}%*.*f' % (args.digits,args.decimals, v[i]),end='')
+    print(']')
+
+def printSolution(A,varMap,base,args):
     if not hasattr(printSolution, "counter"):
         printSolution.counter = 0
     printSolution.counter += 1
     print(f'Iteration {printSolution.counter}\nTableau:')
     printTableau(A,args)
+
+    print('\nBase:', str([x for x in base])[1:-1])
+    x = getSolution(A,base)
+    print('Y (primal) = ',end='')
+    printArray(x,args)
+    x = getSolutionOriginal(varMap,x)
+    print('X (originals variables) = ',end='')
+    printArray(x,args)
+    print('Dual\'s Solution:',end='')
+    printArray(getSolutionDual(A),args)
+
 
 def find(A,i,cols):
     for col in range(len(A[0])):
@@ -325,6 +387,8 @@ def selectAux(A,cols,extra,policy):
     return select(A,cols,policy)
     
 def findBase(A,varMap,c,cols,args,extra):
+    print('Finding a new (and valid) base without extra variables (if it exists):')
+
     x,y,z = selectAux(A,cols,len(A[0])-1-extra,args.policy)
     e = extra
     while not z:
@@ -337,9 +401,24 @@ def findBase(A,varMap,c,cols,args,extra):
     if A[0][len(A[0])-1]!=0:
         print('Status: inviavel')
         exit(0)
+    
+    print('\nNew valid base found:',str([x for x in cols])[1:-1])
+    print('Tableau: ')
+    printTableau(A,args)
+
     Al = changeTableau(A,c,extra)
+    print('\nChanging the tableu to the original objective function:')
+    printTableau(Al,args)
+    b=True
     for i in cols:
-        pivot(Al,cols[i],i)
+        if zero(Al[0][i])!=0:
+            if b:
+                b=False
+                print('\nFixing the tableau to it\'s base:')
+            Al[0] = Al[0]-Al[cols[i]]*Al[0][i]
+    if not b:
+        printTableau(Al,args)
+        print()
     return Al
 
 def simplex(A,varMap,c,isMin,args,extra,baseMap):
@@ -350,16 +429,42 @@ def simplex(A,varMap,c,isMin,args,extra,baseMap):
         del baseMap[find(A,x,baseMap)]
         pivot(A,x,y)
         baseMap[y]=x
+        printSolution(A,varMap,baseMap,args)
+        print()
         x,y,z = select(A,baseMap,args.policy)
 
-    print(-A[0][len(A[0])-1] if isMin else A[0][len(A[0])-1])
+    print('\nOptimal value reached: %*.*f' % (args.digits,args.decimals,-A[0][len(A[0])-1] if isMin else A[0][len(A[0])-1]),'\nTableau: ')
+    printTableau(A,args)
+    print('\nSolutions: \nY (primal) = ',end='')
+    sol = getSolution(A,baseMap)
+    printArray(sol,args)
+    print('X (originals variables) = ',end='')
+    printArray(getSolutionOriginal(varMap,sol),args)
+    print('Dual\'s solution: ',end='')
+    printArray(getSolutionDual(A),args,)
+
+    if x!=-1:
+        print(x,y)
+        print('\n\nThis instance has infinite solutions!')
+        pivot(A,x,y)
+        print('Solutions: \nY (primal) = ',end='')
+        sol = getSolution(A,baseMap)
+        printArray(sol,args)
+        print('X (originals variables) = ',end='')
+        printArray(getSolutionOriginal(varMap,sol),args)
+        print('Dual\'s solution: ',end='')
+        printArray(getSolutionDual(A),args,)
+
 
 def main():
     varMap,numVarFPI,c,isMin,A,args,negs = parseAndGetInput()
     c = c + [0]*(len(A[0])-len(c)-1)
-
+    printMatrixFPI(A,c,args)
     lines,baseMap = hasBase(A)
     tableau,ex = getTableau(A,c,lines,baseMap,negs)
+    print('\nCreating the tableau for the matrix A', ':' if ex==0 else f' (with {ex} extra columns to create a base):')
+    printTableau(tableau,args)
+    print('\nColumns in the base:', str([x for x in baseMap])[1:-1])
     simplex(tableau,varMap,c,isMin,args,ex,baseMap)
 
 if __name__ == '__main__': main()
